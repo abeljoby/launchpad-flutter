@@ -1,77 +1,53 @@
 import 'package:flutter/material.dart';
-import 'package:launchpad/auth.dart';
-import 'package:launchpad/login.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:launchpad/providers/auth_provider.dart';
 import 'types.dart';
 import 'package:launchpad/edit.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 
-class Home extends StatefulWidget {
+class Home extends ConsumerStatefulWidget {
   const Home({super.key});
 
   @override
-  State<Home> createState() => _HomeState();
+  ConsumerState<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
-  User? _user;
-
-  Future<void> getUser() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? userJson = prefs.getString('user');
-    if (userJson != null) {
-      setState(() {
-        _user = User.fromJson(jsonDecode(userJson));
-      });
-    }
-  }
+class _HomeState extends ConsumerState<Home> {
 
   @override
   void initState() {
     super.initState();
-    getUser();
+    // User is already loaded by AuthProvider
   }
 
   Future<void> _handleLogout() async {
-    await logout();
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-      );
-    }
+    await ref.read(authProvider.notifier).logout();
+    // No need to navigate manually, MyApp will switch to LoginPage
   }
 
-  Future<void> _handleEdit() async {
-    // var res = await http.get(
-    //   Uri.parse('https://launchpad-api.tarento.dev/api/auth/me'),
-    // );
-    // print(res.body);
-
+  Future<void> _handleEdit(User currentUser) async {
     final result = await showDialog<User>(
       context: context,
-      builder: (context) => Edit(user: _user),
+      builder: (context) => Edit(user: currentUser),
     );
 
     if (result != null) {
-      setState(() {
-        _user = result;
-      });
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user', jsonEncode(_user!.toJson()));
+      await ref.read(authProvider.notifier).updateUser(result);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_user == null) {
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+
+    if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text('Welcome, ${_user!.name}'),
+        title: Text('Welcome, ${user.name}'),
         actions: [
           IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
@@ -80,7 +56,7 @@ class _HomeState extends State<Home> {
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: .start,
-          spacing: 48,
+          spacing: 48, 
           children: [
             Row(
               mainAxisAlignment: .spaceBetween,
@@ -91,7 +67,7 @@ class _HomeState extends State<Home> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit),
-                  onPressed: _handleEdit,
+                  onPressed: () => _handleEdit(user),
                 ),
               ],
             ),
@@ -102,20 +78,20 @@ class _HomeState extends State<Home> {
                   CircleAvatar(
                     radius: 80,
                     backgroundImage: NetworkImage(
-                      'https://launchpad-api.tarento.dev${_user!.avatarUrl}',
+                      'https://launchpad-api.tarento.dev${user.avatarUrl}',
                     ),
                   ),
                   Text(
-                    _user!.name,
+                    user.name,
                     style: TextStyle(fontSize: 16, fontWeight: .w600),
                   ),
                   Column(
                     children: [
-                      Text("ID: ${_user!.id}"),
-                      Text("Role: ${_user!.role}"),
-                      Text("Email: ${_user!.email}"),
-                      if (_user?.bio != null && _user!.bio!.isNotEmpty)
-                        Text("About: ${_user!.bio}"),
+                      Text("ID: ${user.id}"),
+                      Text("Role: ${user.role}"),
+                      Text("Email: ${user.email}"),
+                      if (user.bio != null && user.bio!.isNotEmpty)
+                        Text("About: ${user.bio!}"),
                     ],
                   ),
                 ],

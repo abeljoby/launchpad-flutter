@@ -2,22 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'types.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:launchpad/home.dart';
+// import 'package:shared_preferences/shared_preferences.dart'; // Removed
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:launchpad/providers/auth_provider.dart';
 
-// Response object for login
-// {
-//   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZW1haWwiOiJqb2huQHRhcmVudG8uY29tIiwiZXhwIjoxNzY4Mzk5MjU3fQ.R-tcaa1UUzddwbrA9Ie1Od7vWX0cprdWKaAuGGVym4I",
-//   "token_type": "bearer",
-//   "user": {
-//     "id": 3,
-//     "email": "john@tarento.com",
-//     "name": "John Tarento",
-//     "avatar_url": "/api/files/avatars/1767973057_tarento_group_logo.jpeg",
-//     "bio": null,
-//     "role": "project_manager"
-//   }
-// }
+// Response object for login ... (kept same)
 class LoginResponse {
   final String accessToken;
   final String tokenType;
@@ -39,60 +28,60 @@ class LoginResponse {
   }
 }
 
-// A simple login page that interacts with the Launchpad API
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
-  // Set SharedPreferences user data
-  Future<void> setUser(LoginResponse loginResponse) async {
-    final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('access_token', loginResponse.accessToken);
-      await prefs.setString('token_type', loginResponse.tokenType);
-      await prefs.setString('user', jsonEncode(loginResponse.user));
-  }
-
-  // Handle login to Launchpad API
   Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
     String email = _emailController.text;
     String password = _passwordController.text;
-
-    print('Logging in with Email: $email, Password: $password');
 
     try {
       final response = await login(email, password);
       if (response.statusCode == 200) {
         final loginResponse = LoginResponse.fromJsonString(response.body);
-        await setUser(loginResponse);
-        print('Login successful: ${loginResponse.user.name}');
+
+        // Update state via provider. This will trigger MyApp rebuild and switch to Home.
+        await ref
+            .read(authProvider.notifier)
+            .login(loginResponse.accessToken, loginResponse.user);
+      } else {
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const Home()),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login failed: ${response.statusCode}')),
           );
         }
-      } else {
-        print('Login failed with status code: ${response.statusCode}');
       }
     } catch (e) {
-      print("Error logging in: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error logging in: $e")));
+      }
     }
   }
 
   Future<http.Response> login(String email, String password) async {
-    return http.post(Uri.parse('https://launchpad-api.tarento.dev/api/auth/login'),
-      body: {'email': email, 'password': password});
+    return http.post(
+      Uri.parse('https://launchpad-api.tarento.dev/api/auth/login'),
+      body: {'email': email, 'password': password},
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Login'),
@@ -100,24 +89,41 @@ class _LoginPageState extends State<LoginPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => _handleLogin(),
-              child: const Text('Login'),
-            ),
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter email' : null,
+              ),
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter password' : null,
+              ),
+              const SizedBox(height: 20),
+              authState.isLoading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(
+                      onPressed: _handleLogin,
+                      child: const Text('Login'),
+                    ),
+              if (authState.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    authState.error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
