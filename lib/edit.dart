@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launchpad/services/storage_service.dart';
 import 'types.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 
 class Edit extends ConsumerStatefulWidget {
   final User? user;
@@ -20,21 +22,33 @@ class _EditState extends ConsumerState<Edit> {
 
   Future<void> handleUpload() async {
     try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) return;
+
       final storageService = ref.read(storageServiceProvider);
       final token = storageService.getToken();
       if (token != null) {
-        final response = await http.put(
-          Uri.parse('https://launchpad-api.tarento.dev/api/auth/me'),
-          headers: {'Authorization': 'Bearer $token'},
-          body: {
-            'file': '',
-          },
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse('https://launchpad-api.tarento.dev/api/auth/upload/avatar'),
         );
+        request.headers['Authorization'] = 'Bearer $token';
+        request.files.add(await http.MultipartFile.fromPath('file', image.path));
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
 
         print('Updated Avatar Response Code: ${response.statusCode}');
         print('Updated Avatar Response Body: ${response.body}');
 
-        if (response.statusCode != 200) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final data = jsonDecode(response.body);
+          setState(() {
+            _avatarUrlController.text = data['url'];
+          });
+        } else {
           throw Exception(
             'Failed to upload avatar: ${response.statusCode} ${response.body}',
           );
@@ -54,9 +68,11 @@ class _EditState extends ConsumerState<Edit> {
       final token = storageService.getToken();
 
       if (token != null) {
-        final response = await http.post(
-          Uri.parse('https://launchpad-api.tarento.dev/api/auth/upload/avatar'),
-          headers: {'Authorization': 'Bearer $token'},
+        final response = await http.put(
+          Uri.parse('https://launchpad-api.tarento.dev/api/auth/me'),
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
           body: {
             'name': user.name,
             'bio': user.bio ?? '',
