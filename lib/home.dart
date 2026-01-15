@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/auth.dart';
-import 'package:flutter_application_1/login.dart';
+import 'package:launchpad/auth.dart';
+import 'package:launchpad/login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'types.dart';
-import 'package:flutter_application_1/edit.dart';
+import 'package:launchpad/edit.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 

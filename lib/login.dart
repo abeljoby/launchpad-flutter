@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'types.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_application_1/home.dart';
+import 'package:launchpad/home.dart';
 
 // Response object for login
 // {
