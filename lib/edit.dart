@@ -47,6 +47,7 @@ class _EditState extends ConsumerState<Edit> {
           final data = jsonDecode(response.body);
           setState(() {
             _avatarUrlController.text = data['url'];
+            print(_avatarUrlController.text);
           });
         } else {
           throw Exception(
@@ -186,7 +187,7 @@ class _EditState extends ConsumerState<Edit> {
                 id: widget.user!.id,
                 email: widget.user!.email,
                 name: _nameController.text,
-                avatarUrl: widget.user!.avatarUrl,
+                avatarUrl: _avatarUrlController.text,
                 bio: _bioController.text,
                 role: widget.user!.role,
               );
