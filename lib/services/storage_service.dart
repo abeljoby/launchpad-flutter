@@ -8,6 +8,7 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 class StorageService {
   static const String _userBoxName = 'userBox';
+
   static const String _tokenKey = 'access_token';
   static const String _userKey = 'user_profile';
 
@@ -26,7 +27,6 @@ class StorageService {
   }
 
   Future<void> saveUser(User user) async {
-    // Storing as JSON map since we don't have code generation set up
     await _box.put(_userKey, user.toJson());
   }
 
@@ -34,7 +34,6 @@ class StorageService {
     final data = _box.get(_userKey);
     if (data != null) {
       try {
-        // dynamic map from Hive needs to be cast properly for fromJson
         return User.fromJson(Map<String, dynamic>.from(data));
       } catch (e) {
         return null;

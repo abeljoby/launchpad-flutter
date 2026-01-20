@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'types.dart';
-// import 'package:shared_preferences/shared_preferences.dart'; // Removed
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launchpad/providers/auth_provider.dart';
 
-// Response object for login ... (kept same)
 class LoginResponse {
   final String accessToken;
   final String tokenType;

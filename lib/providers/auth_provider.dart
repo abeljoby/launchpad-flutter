@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../types.dart';
 import '../services/storage_service.dart';
@@ -39,6 +38,7 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final StorageService _storageService;
 
+  // Calls parent constructor StateNotifier with initial state
   AuthNotifier(this._storageService) : super(AuthState()) {
     checkLoginStatus();
   }
